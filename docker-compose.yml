@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: vridhi_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: vridhi_id
+    volumes:
+      - mongo_data:/data/db
+
+  model-service:
+    build:
+      context: ./model
+      dockerfile: Dockerfile
+    container_name: vridhi_model_service
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - LOG_LEVEL=info
+    volumes:
+      - ./model/weights:/app/weights
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vridhi_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017/vridhi_id
+      - JWT_SECRET=change_this_in_production_to_a_secure_random_key_min_32_chars
+      - MODEL_SERVICE_URL=http://model-service:8000
+      - CLIENT_URL=http://localhost:3000
+      - OTP_TEST_MODE=true
+    depends_on:
+      - mongodb
+      - model-service
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vridhi_frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_BACKEND_URL=http://localhost:5000
+      - VITE_MODEL_SERVICE_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+volumes:
+  mongo_data:
